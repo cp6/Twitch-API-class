@@ -331,24 +331,34 @@ class twitch_call
     /**
      * Returns videos for user
      * @param int $user
+     * @param string $sort_by TIME|TRENDING|VIEWS
      * @param int $amount
      * @return string
      */
-    public function getUserVideos($user, $amount = 25)
+    public function getUserVideos($user, $sort_by, $amount = 25)
     {
-        return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&first=' . rawurlencode($amount));
+        if ($sort_by == 'TIME' || $sort_by == 'TRENDING' || $sort_by == 'VIEWS') {
+            return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&sort=' . rawurlencode($sort_by) . '&first=' . rawurlencode($amount));
+        } else {
+            return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&first=' . rawurlencode($amount));
+        }
     }
 
     /**
      * Returns videos for user for a game id
      * @param int $user
      * @param int $game_id
+     * @param string $sort_by TIME|TRENDING|VIEWS
      * @param int $amount
      * @return string
      */
-    public function getUserVideosForGame($user, $game_id, $amount = 25)
+    public function getUserVideosForGame($user, $game_id, $sort_by, $amount = 25)
     {
-        return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
+        if ($sort_by == 'TIME' || $sort_by == 'TRENDING' || $sort_by == 'VIEWS') {
+            return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&game_id=' . rawurlencode($game_id) . '&sort=' . rawurlencode($sort_by) . '&first=' . rawurlencode($amount));
+        } else {
+            return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
+        }
     }
 
 
