@@ -337,14 +337,46 @@ class twitch_call
     }
 
     /**
+     * Returns all tags for stream
+     * @param string $tag_id
+     * @return string
+     */
+    public function getAllStreamTags($tag_id)
+    {
+        return $this->apiCall('/helix/tags/streams?tag_id=' . rawurlencode($tag_id));
+    }
+
+    /**
      * Returns clips for game id
      * @param int $game_id
+     * @param string $pagination
      * @param int $amount
      * @return string
      */
-    public function getGameClips($game_id, $amount = 25)
+    public function getGameClips($game_id, $pagination = null, $amount = 25)
     {
-        return $this->apiCall('/helix/clips?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
+        if ($pagination == '') {
+            return $this->apiCall('/helix/clips?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
+        } else {
+            return $this->apiCall('/helix/clips?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination) . '');
+        }
+    }
+
+    /**
+     * Returns clips for user and game id
+     * @param int $user_id
+     * @param int $game_id
+     * @param string $pagination
+     * @param int $amount
+     * @return string
+     */
+    public function getUserGameClips($user_id, $game_id, $pagination = null, $amount = 25)
+    {
+        if ($pagination == '') {
+            return $this->apiCall('/helix/clips?broadcaster_id=' . rawurlencode($user_id) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
+        } else {
+            return $this->apiCall('/helix/clips?broadcaster_id=' . rawurlencode($user_id) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination) . '');
+        }
     }
 
 
