@@ -295,6 +295,22 @@ class twitch_call
     }
 
     /**
+     * Gets users stream language
+     * @return string
+     * @throws Exception
+     *
+     */
+    public function streamLanguage()
+    {
+        $data = json_decode($this->data, true);
+        if (!isset($data['data'][0]['language'])) {
+            throw new Exception("No data found");
+        } else {
+            return $data['data'][0]['language'];
+        }
+    }
+
+    /**
      * Gets users current stream thumbnail
      * @return string
      * @throws Exception
