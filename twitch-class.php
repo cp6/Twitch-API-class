@@ -115,12 +115,16 @@ class twitch_call
 
     /**
      * Returns top games being streamed
-     * @param int $amount
+     * @param string $pagination
      * @return string
      */
-    public function getTopGames($amount = 25)
+    public function getTopGames($pagination = '')
     {
-        return $this->apiCall('/helix/games/top?first=' . rawurlencode($amount));
+        if ($pagination == '') {
+            return $this->apiCall('/helix/games/top?first=25');
+        } else {
+            return $this->apiCall('/helix/games/top?first=25&after=' . rawurlencode($pagination));
+        }
     }
 
     /**
