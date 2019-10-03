@@ -72,23 +72,33 @@ class twitch_call
 
     /**
      * Returns popular current streams
+     * @param string $pagination
      * @param int $amount
      * @return string
      */
-    public function getTopStreams($amount = 25)
+    public function getTopStreams($pagination = null, $amount = 25)
     {
-        return $this->apiCall('/helix/streams?amount=' . rawurlencode($amount));
+        if ($pagination == '') {
+            return $this->apiCall('/helix/streams?first=' . rawurlencode($amount) . '');
+        } else {
+            return $this->apiCall('/helix/streams?first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination));
+        }
     }
 
     /**
      * Returns popular current streams for game id
      * @param int $game_id
+     * @param string $pagination
      * @param int $amount
      * @return string
      */
-    public function getGameTopStreams($game_id, $amount = 25)
+    public function getGameTopStreams($game_id, $pagination = null, $amount = 25)
     {
-        return $this->apiCall('/helix/streams?game_id=' . rawurlencode($game_id) . '&amount=' . rawurlencode($amount));
+        if ($pagination == '') {
+            return $this->apiCall('/helix/streams?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
+        } else {
+            return $this->apiCall('/helix/streams?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination));
+        }
     }
 
     /**
@@ -115,12 +125,17 @@ class twitch_call
 
     /**
      * Returns top games being streamed
+     * @param string $pagination
      * @param int $amount
      * @return string
      */
-    public function getTopGames($amount = 25)
+    public function getTopGames($pagination = null, $amount = 25)
     {
-        return $this->apiCall('/helix/games/top?first=' . rawurlencode($amount));
+        if ($pagination == '') {
+            return $this->apiCall('/helix/games/top?first=' . rawurlencode($amount) . '');
+        } else {
+            return $this->apiCall('/helix/games/top?first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination));
+        }
     }
 
     /**
