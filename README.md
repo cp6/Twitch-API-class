@@ -1,7 +1,14 @@
 # Twitch API class
+
+### Updated for OAuth usage!
+
 Feature packed, easy to use PHP class for the [latest](https://dev.twitch.tv/docs/api/) Twitch API.
 
-You will need your free Twitch Client Id to use, see [here](https://dev.twitch.tv/docs/api/#step-1-setup) to obtain.
+You will need your free Twitch client id to use, see [here](https://dev.twitch.tv/docs/api/#step-1-setup) to obtain.
+
+To get your authorization code see [here](https://write.corbpie.com/twitch-api-authentication-with-oauth-using-php/).
+
+This class will automatically refresh access token once it expires!
 
 ## Features
 
@@ -29,20 +36,34 @@ You will need your free Twitch Client Id to use, see [here](https://dev.twitch.t
 
 ## Usage
 
+Add your Twitch client id, client secret and authorization code into the constants (lines 5-7)
+
+Add your redirect URI [info](https://write.corbpie.com/twitch-api-authentication-with-oauth-using-php/) (line 8)
+
+Change the token filename constant, however keep it as a .txt extension (line 9)
+
 Make sure the class file is included
 ```php
 require_once('twitch-class.php');
 ```
 
-Then assign a new instance with your Twitch Client Id
+Then assign a new instance
 ```php
 $call = new twitch_call();
-$call->setApiKey('TWITCHCLIENTID');//Set client id
 ```
 
 Get current top (view count) streams `array`
 ```php
 $call->getTopStreams();
+```
+
+<b>Protect your calls against an expired access token:</b>
+```php
+$data = $call->getUserLiveData('summit1g');
+if (!$call->checkCallSuccess($data)) {//Call failed but refreshed token, try it again:
+    $data = $call->getUserLiveData('summit1g');
+}
+echo $data;
 ```
 
 Get current top (view count) streams for a game `array`
