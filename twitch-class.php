@@ -2,209 +2,162 @@
 
 class twitch_call
 {
-    const URI = 'https://api.twitch.tv';
-    private $api_key;
-    private $data;
+    private const CLIENT_ID = 'XXXX';
+    private const CLIENT_SECRET = 'XXXX';
+    private const ACCESS_CODE = 'XXXX';//Authorization code
+    private const REDIRECT_URI = 'localhost';//Your applications redirect URI
+    private const TOKEN_FILENAME = 'ABC123.txt';//Change this name. It is the file your token will be stored in
 
-    /**
-     * Sets Twitch api key
-     * @param string $api_key
-     * @throws Exception
-     */
-    public function setApiKey($api_key)
+    private const URI = 'https://api.twitch.tv';//DONT CHANGE
+    private const TWITCH_OUATH_URI = 'https://id.twitch.tv/oauth2';//DONT CHANGE
+
+    private string $access_token;
+    private string $refresh_token;
+    private mixed $data;
+
+    public function __construct()
     {
-        if (!isset($api_key) or trim($api_key) == '') {
-            throw new Exception("You must provide an API key");
-        }
-        $this->apikey = $api_key;
+        $tokens = $this->getTokens();
     }
 
-    /**
-     * Builds and executes api call
-     * @param string $url
-     * @param array $params
-     * @param string $method
-     * @return string
-     * @throws Exception
-     */
-    public function apiCall($url, $params = array(), $method = 'get')
+    public function getTokens(): void
     {
-        $data = null;
-        $appid = $this->apikey;
-        $url = (self::URI . $url);
+        $filename = self::TOKEN_FILENAME;
+        if (!file_exists($filename)) {//First time use = create the file
+            $this->createTokenFile();
+        }
+        $tokens = json_decode(file_get_contents($filename));
+        $this->access_token = $tokens->access_token;
+        $this->refresh_token = $tokens->refresh_token;
+    }
 
+    public function createTokenFile(): void
+    {
+        $data = json_decode($this->doCurl("" . self::TWITCH_OUATH_URI . "/token?client_id=" . self::CLIENT_ID . "&client_secret=" . self::CLIENT_SECRET . "&code=" . self::ACCESS_CODE . "&grant_type=authorization_code&redirect_uri=" . self::REDIRECT_URI . "", "POST"));
+        $contents = '{"access_token": "' . $data->access_token . '", "refresh_token": "' . $data->refresh_token . '"}';
+        $fp = fopen(self::TOKEN_FILENAME, 'wb');
+        fwrite($fp, $contents);
+        fclose($fp);
+    }
+
+    public function refreshToken(): void
+    {
+        $data = json_decode($this->doCurl("" . self::TWITCH_OUATH_URI . "/token?grant_type=refresh_token&refresh_token=$this->refresh_token&client_id=" . self::CLIENT_ID . "&client_secret=" . self::CLIENT_SECRET . "", 'POST'));
+        $contents = '{"access_token": "' . $data->access_token . '", "refresh_token": "' . $data->refresh_token . '"}';
+        $fp = fopen(self::TOKEN_FILENAME, 'w');
+        fwrite($fp, $contents);
+        fclose($fp);
+    }
+
+    public function checkCallSuccess(): bool|string
+    {
+        if (isset($this->data['http_response_code']) && $this->data['http_response_code'] == 401) {
+            $this->refreshToken();//Fetches new access and refresh tokens
+            return false;
+        } else {
+            return json_encode($this->data);
+        }
+    }
+
+    public function apiCall(string $url, array $params = array(), string $method = 'get'): bool|array|string
+    {
+        $url = (self::URI . $url);
         $curl = curl_init();
-        curl_setopt($curl, CURLOPT_TIMEOUT, 3);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 5);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-            "Client-ID: $appid"
+            "Authorization: Bearer $this->access_token",
+            "Client-ID: " . self::CLIENT_ID . ""
         ));
-        if ($method == 'get' && !empty($params)) {
-            $url = ($url . '?' . http_build_query($params));
-        } else if ($method == 'post') {
+        if ($method === 'get' && !empty($params)) {
+            $url .= '?' . http_build_query($params);
+        } else if ($method === 'post') {
             curl_setopt($curl, CURLOPT_POST, true);
             curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params));
         }
         curl_setopt($curl, CURLOPT_URL, $url);
         $response = curl_exec($curl);
         $responseInfo = curl_getinfo($curl);
-
-        switch ($responseInfo['http_code']) {
-            case 0:
-                throw new Exception('Timeout reached when calling ' . $url);
-                break;
-            case 200:
-                $data = $response;
-                break;
-            case 401:
-                throw new Exception('Unauthorized request to ' . $url . ': ' . json_decode($response)->message);
-                break;
-            case 404;
-                $data = null;
-                break;
-            default:
-                throw new Exception('Connect to API failed with response: ' . $responseInfo['http_code']);
-                break;
+        if ($responseInfo['http_code'] === 200) {
+            $data = $response;
+        } else {
+            $data = array('http_response_code' => $responseInfo['http_code']);//Call failed
         }
         $this->data = $data;
         return $data;
     }
 
-    /**
-     * Returns popular current streams
-     * @param string $pagination
-     * @param int $amount
-     * @return string
-     */
-    public function getTopStreams($pagination = null, $amount = 25)
+    public function getTopStreams(string $pagination = '', int $amount = 25): bool|array|string
     {
-        if ($pagination == '') {
+        if ($pagination === '') {
             return $this->apiCall('/helix/streams?first=' . rawurlencode($amount) . '');
         } else {
             return $this->apiCall('/helix/streams?first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination));
         }
     }
 
-    /**
-     * Returns popular current streams for game id
-     * @param int $game_id
-     * @param string $pagination
-     * @param int $amount
-     * @return string
-     */
-    public function getGameTopStreams($game_id, $pagination = null, $amount = 25)
+    public function getGameTopStreams(int $game_id, string $pagination = '', $amount = 25): bool|array|string
     {
-        if ($pagination == '') {
+        if ($pagination === '') {
             return $this->apiCall('/helix/streams?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
         } else {
             return $this->apiCall('/helix/streams?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination));
         }
     }
 
-    /**
-     * Returns streamer name that has most viewers for game id
-     * @return string
-     * @throws Exception
-     */
-    public function getTopStreamerForGame()
+    public function getTopStreamerForGame(): mixed
     {
         $data = json_decode($this->data, true);
         return $data['data'][0]['user_name'];
     }
 
-    /**
-     * Returns view count for stream that has most viewers for game id
-     * @return string
-     * @throws Exception
-     */
-    public function getTopViewersForGame()
+    public function getTopViewersForGame(): mixed
     {
         $data = json_decode($this->data, true);
         return $data['data'][0]['viewer_count'];
     }
 
-    /**
-     * Returns top games being streamed
-     * @param string $pagination
-     * @param int $amount
-     * @return string
-     */
-    public function getTopGames($pagination = null, $amount = 25)
+    public function getTopGames(string $pagination = '', int $amount = 25): bool|array|string
     {
-        if ($pagination == '') {
+        if ($pagination === '') {
             return $this->apiCall('/helix/games/top?first=' . rawurlencode($amount) . '');
         } else {
             return $this->apiCall('/helix/games/top?first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination));
         }
     }
 
-    /**
-     * Gets user details for a username
-     * @param string $username
-     * @return string
-     */
-    public function getUserDetails($username)
+    public function getUserDetails(string $username): bool|array|string
     {
         return $this->apiCall('/helix/users?login=' . rawurlencode($username));
     }
 
-    /**
-     * Gets user id
-     * @return integer
-     */
-    public function idForUser()
+    public function idForUser(): mixed
     {
         $data = json_decode($this->data, true);
         return $data['data'][0]['id'];
     }
 
-    /**
-     * Gets user emotes
-     * @param string $username
-     * @return string
-     */
-    public function getUserEmotes($username)
+    public function getUserEmotes(string $username): bool|array|string
     {
         return $this->apiCall('/api/channels/' . rawurlencode($username) . '/product');
     }
 
-    /**
-     * Gets emote image for emote id
-     * @param int $emote_id
-     * @param string $size
-     * @return string
-     */
-    public function emoteImage($emote_id, $size = '2.0')
+    public function emoteImage(string $emote_id, string $size = '2.0'): string
     {
         return "https://static-cdn.jtvnw.net/emoticons/v1/$emote_id/$size";
     }
 
-    /**
-     * Gets chat data for vod
-     * @param int $vod_id
-     * @param int $offset
-     * @return string
-     */
-    public function chatForVod($vod_id, $offset)
+    public function chatForVod(string $vod_id, string $offset): bool|array|string
     {
         return $this->apiCall('/v5/videos/' . rawurlencode($vod_id) . '/comments?content_offset_seconds=' . rawurlencode($offset) . '');
     }
 
-    /**
-     * Gets user stream data if live
-     * @param string $username
-     * @return string
-     */
-    public function getUserStream($username)
+    public function getUserStream(string $username): bool|array|string
     {
         return $this->apiCall('/helix/streams?user_login=' . rawurlencode($username) . '');
     }
 
-    /**
-     * Checks if user is live
-     * @return bool
-     */
-    public function userIsLive()
+    public function userIsLive(): ?bool
     {
         $data = json_decode($this->data, true);
         if (!isset($data['data'][0])) {
@@ -214,12 +167,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users streaming game id
-     * @return int
-     * @throws Exception
-     *
-     */
     public function streamGameId()
     {
         $data = json_decode($this->data, true);
@@ -230,12 +177,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users current stream view count
-     * @return int
-     * @throws Exception
-     *
-     */
     public function streamViewers()
     {
         $data = json_decode($this->data, true);
@@ -246,12 +187,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users current stream title
-     * @return string
-     * @throws Exception
-     *
-     */
     public function streamTitle()
     {
         $data = json_decode($this->data, true);
@@ -262,12 +197,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users current stream id
-     * @return int
-     * @throws Exception
-     *
-     */
     public function streamId()
     {
         $data = json_decode($this->data, true);
@@ -278,12 +207,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users current stream start time
-     * @return string
-     * @throws Exception
-     *
-     */
     public function streamStart()
     {
         $data = json_decode($this->data, true);
@@ -294,12 +217,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users stream language
-     * @return string
-     * @throws Exception
-     *
-     */
     public function streamLanguage()
     {
         $data = json_decode($this->data, true);
@@ -310,12 +227,6 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets users current stream thumbnail
-     * @return string
-     * @throws Exception
-     *
-     */
     public function streamThumbnail()
     {
         $data = json_decode($this->data, true);
@@ -326,122 +237,63 @@ class twitch_call
         }
     }
 
-    /**
-     * Returns tags for a stream
-     * @param int $stream_id
-     * @return string
-     */
-    public function getStreamTags($stream_id)
+    public function getStreamTags(string $stream_id): bool|array|string
     {
         return $this->apiCall('/helix/streams/tags?broadcaster_id=' . rawurlencode($stream_id));
     }
 
-    /**
-     * Returns all tags for stream
-     * @param string $tag_id
-     * @return string
-     */
-    public function getAllStreamTags($tag_id)
+    public function getAllStreamTags(string $tag_id): bool|array|string
     {
         return $this->apiCall('/helix/tags/streams?tag_id=' . rawurlencode($tag_id));
     }
 
-    /**
-     * Returns clips for game id
-     * @param int $game_id
-     * @param string $pagination
-     * @param int $amount
-     * @return string
-     */
-    public function getGameClips($game_id, $pagination = null, $amount = 25)
+    public function getGameClips(int $game_id, string $pagination = '', int $amount = 25): bool|array|string
     {
-        if ($pagination == '') {
+        if ($pagination === '') {
             return $this->apiCall('/helix/clips?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
         } else {
             return $this->apiCall('/helix/clips?game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination) . '');
         }
     }
 
-    /**
-     * Returns clips for user and game id
-     * @param int $user_id
-     * @param int $game_id
-     * @param string $pagination
-     * @param int $amount
-     * @return string
-     */
-    public function getUserGameClips($user_id, $game_id, $pagination = null, $amount = 25)
+    public function getUserGameClips(string $user_id, int $game_id, string $pagination = '', int $amount = 25): bool|array|string
     {
-        if ($pagination == '') {
+        if ($pagination === '') {
             return $this->apiCall('/helix/clips?broadcaster_id=' . rawurlencode($user_id) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
         } else {
             return $this->apiCall('/helix/clips?broadcaster_id=' . rawurlencode($user_id) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount) . '&after=' . rawurlencode($pagination) . '');
         }
     }
 
-
-    /**
-     * Returns clips for user
-     * @param int $user
-     * @param int $amount
-     * @return string
-     */
-    public function getUserClips($user, $amount = 25)
+    public function getUserClips(string $user, int $amount = 25): bool|array|string
     {
         return $this->apiCall('/helix/clips?broadcaster_id=' . rawurlencode($user) . '&first=' . rawurlencode($amount));
     }
 
-    /**
-     * Returns videos for user
-     * @param int $user
-     * @param string $sort_by TIME|TRENDING|VIEWS
-     * @param int $amount
-     * @return string
-     */
-    public function getUserVideos($user, $sort_by, $amount = 25)
+    public function getUserVideos(string $user, string $sort_by, int $amount = 25): bool|array|string
     {
-        if ($sort_by == 'TIME' || $sort_by == 'TRENDING' || $sort_by == 'VIEWS') {
+        if ($sort_by === 'TIME' || $sort_by === 'TRENDING' || $sort_by === 'VIEWS') {
             return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&sort=' . rawurlencode($sort_by) . '&first=' . rawurlencode($amount));
         } else {
             return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&first=' . rawurlencode($amount));
         }
     }
 
-    /**
-     * Returns videos for user for a game id
-     * @param int $user
-     * @param int $game_id
-     * @param string $sort_by TIME|TRENDING|VIEWS
-     * @param int $amount
-     * @return string
-     */
-    public function getUserVideosForGame($user, $game_id, $sort_by, $amount = 25)
+    public function getUserVideosForGame(string $user, int $game_id, string $sort_by, int $amount = 25): bool|array|string
     {
-        if ($sort_by == 'TIME' || $sort_by == 'TRENDING' || $sort_by == 'VIEWS') {
+        if ($sort_by === 'TIME' || $sort_by === 'TRENDING' || $sort_by === 'VIEWS') {
             return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&game_id=' . rawurlencode($game_id) . '&sort=' . rawurlencode($sort_by) . '&first=' . rawurlencode($amount));
         } else {
             return $this->apiCall('/helix/videos?user_id=' . rawurlencode($user) . '&game_id=' . rawurlencode($game_id) . '&first=' . rawurlencode($amount));
         }
     }
 
-
-    /**
-     * Gets game data for game id
-     * @return string
-     *
-     */
-    public function getGameData($game_id)
+    public function getGameData(int $game_id): bool|array|string
     {
         return $this->apiCall('/helix/games?id=' . rawurlencode($game_id) . '');
     }
 
-    /**
-     * Gets game name for game id
-     * @return string
-     * @throws Exception
-     *
-     */
-    public function gameName()
+    public function gameName(): string
     {
         $data = json_decode($this->data, true);
         if (!isset($data['data'][0]['name'])) {
@@ -451,13 +303,7 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets game artwork for game id
-     * @return string
-     * @throws Exception
-     *
-     */
-    public function gameArtwork()
+    public function gameArtwork(): string
     {
         $data = json_decode($this->data, true);
         if (!isset($data['data'][0]['box_art_url'])) {
@@ -467,15 +313,7 @@ class twitch_call
         }
     }
 
-    /**
-     * Gets custom value from array
-     * @param int $level
-     * @param string $key
-     * @return string
-     * @throws Exception
-     *
-     */
-    public function getCustom($level, $key)
+    public function getCustom(int $level, string $key): mixed
     {
         $data = json_decode($this->data, true);
         if (!isset($data['data'][$level][$key])) {
@@ -485,22 +323,12 @@ class twitch_call
         }
     }
 
-
-    /**
-     * Makes header for json
-     */
-    public function setJsonHeader()
+    public function setJsonHeader(): void
     {
-        return header('Content-Type: application/json');
+        header('Content-Type: application/json');
     }
 
-    /**
-     * turns minutes into formatted time
-     * @param int $minutes
-     * @param string $format
-     * @return string
-     */
-    public function minutesFormat($minutes, $format = 'H:i:s')
+    public function minutesFormat($minutes, $format = 'H:i:s'): string
     {
         return gmdate($format, $minutes);
     }
