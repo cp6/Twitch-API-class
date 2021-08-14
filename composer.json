@@ -1,0 +1,22 @@
+{
+  "name": "corbpie/twitch-api-class",
+  "description": "A PHP Twitch API wrapper",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Corbpie\\TwitchApiClass\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "corbpie",
+      "email": "contact@corbpie.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require": {
+    "php": ">=8.0",
+    "ext-curl": "*"
+  }
+}
