@@ -77,16 +77,6 @@ Get current top (view count) streams `array`
 $call->getTopStreams();
 ```
 
-<b>Protect your calls against an expired access token:</b>
-
-```php
-$data = $call->getUserLiveData('summit1g');
-if (!$call->checkCallSuccess($data)) {//Call failed but refreshed token, try it again:
-    $data = $call->getUserLiveData('summit1g');
-}
-echo $data;
-```
-
 Get current top (view count) streams for a game `array`
 
 ```php
