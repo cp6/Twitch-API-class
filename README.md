@@ -53,7 +53,7 @@ use Corbpie\TwitchApiClass\twitchWrapper;
 $call = new twitchWrapper();
 ```
 
-Add your Twitch client id and client secret into the constants (lines 7-8)
+Add your Twitch client id and client secret into ```src/twitchWrapper.php``` (lines 7-8)
 
 Add your redirect URI [info](https://write.corbpie.com/twitch-api-authentication-with-oauth-using-php/) (line 10)
 
