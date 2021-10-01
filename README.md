@@ -33,7 +33,6 @@ This class will automatically refresh access token once it expires!
 * Get users clips
 * Get game name for game id
 * Get game artwork for game id
-* PHP 8
 
 ## Usage
 
