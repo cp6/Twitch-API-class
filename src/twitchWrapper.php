@@ -71,7 +71,7 @@ class twitchWrapper
         return date("Y-m-d H:i:s", strtotime("+{$seconds} sec"));
     }
 
-    public function getTokensFromFile(): void
+    public function getTokensFromFile(int $counter = 0): void
     {
         if (!file_exists(self::TOKEN_FILENAME)) {//First time use = create the file
             $this->createTokenFile();
@@ -81,8 +81,12 @@ class twitchWrapper
         $this->refresh_token = $tokens->refresh_token;
         $this->expires_dt = $tokens->expires;
         if ($this->dateTimePassed($this->expires_dt)) {
+            ++$counter;
+            if ($counter > 4) {
+                exit;
+            }
             $this->refreshToken();
-            $this->getTokensFromFile();
+            $this->getTokensFromFile($counter);
         }
     }
 
@@ -180,12 +184,9 @@ class twitchWrapper
         return $this->stream_data = $this->doCurl(self::URI . '/helix/streams?user_login=' . rawurlencode($username), 'GET', $this->GETHeaders());
     }
 
-    public function userIsLive(): ?bool
+    public function userIsLive(): bool
     {
-        if (isset($this->stream_data['data'][0])) {
-            return true;//Yes
-        }
-        return false;//No
+        return isset($this->stream_data['data'][0]);
     }
 
     public function streamGameId(): ?string
